@@ -1,0 +1,49 @@
+@echo off
+echo Enviando site para o Raspberry Pi...
+scp -r "D:\zzAudiobooks Audible\biblioteca\*" paull@192.168.1.150:/var/www/html/
+echo Concluido!
+pause
+
+ssh paull@192.168.1.150
+
+scp -r ".\00 biblioteca" paull@192.168.1.150:/home/paull/
+ssh -t paull@192.168.1.150 "sudo cp -r '/home/paull/00 biblioteca/'* /var/www/html/ && rm -rf '/home/paull/00 biblioteca'"
+
+scp -r index.html paull@192.168.1.150:"/home/paull/"
+ssh -t paull@192.168.1.150 "sudo cp -r /home/paull/index.html /var/www/html && rm -rf /home/paull/index.html"
+------------------------------------------------------------------------------------------------------------
+scp index.html paull@192.168.1.150:~/; ssh -t paull@192.168.1.150 "sudo install -m 755 -o root -g www-data ~/index.html /var/www/html/index.html && rm ~/index.html"
+
+sudo cp -r /home/paull/00\ biblioteca/* /var/www/html/
+
+sudo cp -r /home/paull/00 biblioteca/* /var/www/html/
+
+ssh -t paull@192.168.1.150 "sudo cp -r /home/paull/imagens_temp/* /var/www/html/images/ && rm -rf /home/paull/imagens_temp"
+
+
+ssh -t paull@192.168.1.150 "sudo cp -r /home/paull/imagens_temp/* /var/www/html/images/ && rm -rf /home/paull/imagens_temp"
+
+ssh -t paull@192.168.1.150 "sudo cp -r /home/paull/imagens_temp/* /var/www/html/images/ && rm -rf /home/paull/imagens_temp"
+
+----------------------------
+
+Get-ChildItem -Directory -Filter "* - translator" | Rename-Item -NewName { $_.Name -replace ",\s*[^,]+ - translator$", "" } -WhatIf
+Get-ChildItem -Directory | ForEach-Object { 7z.exe a -tzip -mx=9 "$($_.Name).zip" "$($_.FullName)" }
+----------------------------
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+sudo tailscale funnel --bg 80
+
+sudo tailscale serve status
+----------------------------
+
+Start-Sleep -Seconds 6000; Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("{PRTSC}"); Start-Sleep -Seconds 5; shutdown /s /t 0
+Start-Sleep -Seconds 10;   Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("{PRTSC}"); Write-Host "Print tirado com sucesso!"
+----------------------------
+Get-ChildItem *.jpg | ForEach-Object { ffmpeg -i $_.Name -vf "scale=416:-1" -q:v 5 "small\$($_.Name)" }
+
+----------------------------
+sudo chown -R www-data:www-data .
+paull@biblioteca:/var/www/html/images $ sudo chmod -R 755 .
+----------------------------
+scp paull@192.168.1.150:/var/www/html/index.html . 

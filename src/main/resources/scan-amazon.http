@@ -1,0 +1,6 @@
+### Get User Profile
+GET http://localhost:8080/audiobook-library/scan-amazon
+#Authorization: Bearer {{auth_token}}
+#Accept: application/json
+
+###

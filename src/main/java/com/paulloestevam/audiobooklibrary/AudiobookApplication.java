@@ -1,13 +1,13 @@
-package com.paulloestevam.audiobook_library;
+package com.paulloestevam.audiobooklibrary;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class AudiobookLibraryApplication {
+public class AudiobookApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(AudiobookLibraryApplication.class, args);
+		SpringApplication.run(AudiobookApplication.class, args);
 	}
 
 }
