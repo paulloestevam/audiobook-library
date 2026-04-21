@@ -46,4 +46,4 @@ Get-ChildItem *.jpg | ForEach-Object { ffmpeg -i $_.Name -vf "scale=416:-1" -q:v
 sudo chown -R www-data:www-data .
 paull@biblioteca:/var/www/html/images $ sudo chmod -R 755 .
 ----------------------------
-scp paull@192.168.1.150:/var/www/html/index.html . 
+scp paull@192.168.1.150:/var/www/html/index.html .

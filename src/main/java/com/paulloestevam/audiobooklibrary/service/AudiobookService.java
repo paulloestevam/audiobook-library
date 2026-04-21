@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class AudiobookService {
 
-    private final String rootPath = "C:\\projetos\\audiobook-library\\ZZ_BOOKS_TEMP";
+    private final String rootPath = "C:\\projetos\\audiobook-library\\src\\main\\resources\\ZZ_BOOKS_TEMP";
     private final String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     private final ObjectMapper mapper = new ObjectMapper();
     private final Random random = new Random();
@@ -36,7 +36,7 @@ public class AudiobookService {
         this.ffprobe = new FFprobe("ffprobe");
     }
 
-    public void scanAndSave(boolean noAmazon) throws Exception {
+    public void scanAmazon() throws Exception {
         File folder = new File(rootPath);
         File[] directories = folder.listFiles(File::isDirectory);
         List<BookData> bookList = new ArrayList<>();
@@ -48,34 +48,44 @@ public class AudiobookService {
 
                 if (audioFiles != null && audioFiles.length > 0) {
                     title = extractAlbumMetadata(audioFiles[0].getAbsolutePath(), title);
+                    log.info("ID3 Title: {}", title);
                 }
 
                 String rating = "";
                 int reviewCount = 0;
                 String url = "";
 
-                if (!noAmazon) {
-                    Thread.sleep(random.nextLong(5000, 16001));
+                Long delayAmazon = random.nextLong(5000, 16001);
+                log.info("Waiting {} for scan amazon...", delayAmazon);
+                Thread.sleep(delayAmazon);
 
-                    try {
-                        String searchQuery = title.replaceAll("\\(.*?\\)|\\[.*?\\]|\\.mp3|(?i)\\(?Unabridged\\)?", "").trim();
-                        String searchUrl = "https://www.amazon.com.br/s?k=" + URLEncoder.encode(searchQuery, StandardCharsets.UTF_8);
+                try {
+                    String searchQuery = title.replaceAll("\\(.*?\\)|\\[.*?\\]|\\.mp3|(?i)\\(?Unabridged\\)?", "").trim();
+                    String searchUrl = "https://www.amazon.com.br/s?k=" + URLEncoder.encode(searchQuery, StandardCharsets.UTF_8);
 
-                        Document doc = Jsoup.connect(searchUrl).userAgent(userAgent).get();
-                        String html = doc.html();
+                    Document doc = Jsoup.connect(searchUrl).userAgent(userAgent).get();
+                    String html = doc.html();
 
-                        url = extractUrl(html);
-                        rating = extractRating(html);
-                        reviewCount = extractReviewCount(html);
+                    url = extractUrl(html);
+                    rating = extractRating(html);
+                    reviewCount = extractReviewCount(html);
+                    log.info("rating: {}, reviewCount: {}, url: {}", rating, reviewCount, url);
 
-                    } catch (Exception ignored) {
-                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
                 bookList.add(new BookData(title, reviewCount, rating, url));
             }
+
+        } else {
+            log.info("Folder is empty!");
         }
 
+        log.info("Writing file amazon_books_scan.json");
         Files.writeString(Paths.get(rootPath, "amazon_books_scan.json"), mapper.writeValueAsString(bookList), StandardCharsets.UTF_8);
+
+        log.info("Scan completed successfully");
     }
 
     private String extractAlbumMetadata(String filePath, String defaultTitle) {
