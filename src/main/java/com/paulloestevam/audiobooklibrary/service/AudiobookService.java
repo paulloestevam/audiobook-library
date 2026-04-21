@@ -2,15 +2,16 @@ package com.paulloestevam.audiobooklibrary.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.paulloestevam.audiobooklibrary.model.BookData;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.bramp.ffmpeg.FFprobe;
+import net.bramp.ffmpeg.probe.FFmpegFormat;
+import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -23,13 +24,17 @@ import java.util.regex.Pattern;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class AudiobookService {
 
     private final String rootPath = "C:\\projetos\\audiobook-library\\ZZ_BOOKS_TEMP";
     private final String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     private final ObjectMapper mapper = new ObjectMapper();
     private final Random random = new Random();
+    private final FFprobe ffprobe;
+
+    public AudiobookService() throws IOException {
+        this.ffprobe = new FFprobe("ffprobe");
+    }
 
     public void scanAndSave(boolean noAmazon) throws Exception {
         File folder = new File(rootPath);
@@ -75,17 +80,14 @@ public class AudiobookService {
 
     private String extractAlbumMetadata(String filePath, String defaultTitle) {
         try {
-            ProcessBuilder pb = new ProcessBuilder("ffmpeg", "-hide_banner", "-v", "quiet", "-i", filePath, "-f", "ffmetadata", "-");
-            Process process = pb.start();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.startsWith("album=")) {
-                        return line.split("=", 2)[1].trim();
-                    }
-                }
+            FFmpegProbeResult probeResult = ffprobe.probe(filePath);
+            FFmpegFormat format = probeResult.getFormat();
+
+            if (format.tags != null && format.tags.containsKey("album")) {
+                return format.tags.get("album");
             }
         } catch (Exception e) {
+            log.error("Could not extract metadata for file: {}", filePath, e);
             return defaultTitle;
         }
         return defaultTitle;
