@@ -1,3 +1,6 @@
 spring:
   application:
     name: audiobook-library
+  data:
+    mongodb:
+      uri: mongodb://admin:password@localhost:27017/audiobook_db?authSource=admin

@@ -1,7 +1,7 @@
 package com.paulloestevam.audiobooklibrary.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.paulloestevam.audiobooklibrary.model.BookData;
+import com.paulloestevam.audiobooklibrary.model.Book;
 import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.FFprobe;
 import net.bramp.ffmpeg.probe.FFmpegFormat;
@@ -39,7 +39,7 @@ public class AudiobookService {
     public void scanAmazon() throws Exception {
         File folder = new File(rootPath);
         File[] directories = folder.listFiles(File::isDirectory);
-        List<BookData> bookList = new ArrayList<>();
+        List<Book> bookList = new ArrayList<>();
 
         if (directories != null) {
             for (File dir : directories) {
@@ -75,7 +75,7 @@ public class AudiobookService {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-                bookList.add(new BookData(title, reviewCount, rating, url));
+                bookList.add(new Book(title, reviewCount, rating, url));
             }
 
         } else {

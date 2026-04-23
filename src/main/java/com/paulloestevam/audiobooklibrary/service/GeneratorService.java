@@ -2,7 +2,7 @@ package com.paulloestevam.audiobooklibrary.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.paulloestevam.audiobooklibrary.model.BookData;
+import com.paulloestevam.audiobooklibrary.model.Book;
 import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.FFmpeg;
 import net.bramp.ffmpeg.FFmpegExecutor;
@@ -38,7 +38,7 @@ public class GeneratorService {
 
     public void generate() throws Exception {
         createDirectories();
-        List<BookData> amazonData = loadAmazonData();
+        List<Book> amazonData = loadAmazonData();
 
         File folder = new File(rootPath);
         File[] directories = folder.listFiles(f -> f.isDirectory() && !f.getName().equals("00 biblioteca"));
@@ -63,7 +63,7 @@ public class GeneratorService {
         Files.createDirectories(Paths.get(libraryPath, "downloads"));
     }
 
-    private List<BookData> loadAmazonData() throws IOException {
+    private List<Book> loadAmazonData() throws IOException {
         Path jsonPath = Paths.get(rootPath, "amazon_books_scan.json");
         if (Files.exists(jsonPath)) {
             return mapper.readValue(Files.readAllBytes(jsonPath), new TypeReference<>() {
@@ -72,7 +72,7 @@ public class GeneratorService {
         return List.of();
     }
 
-    private void processBook(File dir, List<BookData> amazonData, StringBuilder htmlBody) throws IOException {
+    private void processBook(File dir, List<Book> amazonData, StringBuilder htmlBody) throws IOException {
         File[] audioFiles = dir.listFiles((d, name) -> name.matches(".*\\.(mp3|m4a|m4b)$"));
         File[] jpgFiles = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".jpg"));
 
@@ -110,7 +110,7 @@ public class GeneratorService {
             }
         }
 
-        BookData matchedBook = amazonData.stream()
+        Book matchedBook = amazonData.stream()
                 .filter(b -> b.getTitle().equalsIgnoreCase(searchAlbum) || dir.getName().contains(b.getTitle()))
                 .findFirst()
                 .orElse(null);
@@ -118,19 +118,19 @@ public class GeneratorService {
         htmlBody.append(buildCardHtml(album, artist, genre, desc, totalDurationSeconds, matchedBook, imgSrc, dir.getName()));
     }
 
-    private String buildCardHtml(String title, String artist, String genre, String desc, double duration, BookData amazon, String imgSrc, String folderName) {
+    private String buildCardHtml(String title, String artist, String genre, String desc, double duration, Book book, String imgSrc, String folderName) {
         String ratingHtml = "<div class=\"rating-none\">Sem avaliações</div>";
         double ratingValue = 0;
         int reviews = 0;
 
-        if (amazon != null) {
-            ratingValue = Double.parseDouble(amazon.getRatingText().replace(",", "."));
-            reviews = amazon.getReviewsQuantity();
-            String url = amazon.getUrl();
+        if (book != null) {
+            ratingValue = Double.parseDouble(book.getRating().replace(",", "."));
+            reviews = book.getReviewsCount();
+            String url = book.getUrlAmazon();
             ratingHtml = (url != null && !url.isEmpty())
                     ? "<a href=\"" + url + "\" target=\"_blank\" class=\"rating-container\" onclick=\"event.stopPropagation()\">"
                     : "<div class=\"rating-container\">";
-            ratingHtml += "<span class=\"rating-stars\">&#9733; " + amazon.getRatingText() + "</span>";
+            ratingHtml += "<span class=\"rating-stars\">&#9733; " + book.getRating() + "</span>";
             if (reviews > 0) ratingHtml += "<span class=\"rating-count\">(" + reviews + ")</span>";
             ratingHtml += (url != null && !url.isEmpty()) ? "</a>" : "</div>";
         }
@@ -204,7 +204,8 @@ public class GeneratorService {
                                             <h1>&#128218; Biblioteca</h1>
                                             <span class="book-count">Total de livros: %d</span>
                                         </div>
-                                        <a href="$LinkApk" class="apk-link" title="Baixar APK Player">&#128242; Baixar App Player</a>
+                                        <a href="downloads/Smart AudioBook Player v10.7.0 Premium Mod Apk {CracksHash}.apk class="apk-link" title="Baixar APK Player">&#128242; Baixar App Player</a>
+                
                 
                                     </div>
                                     <div class="header-bottom">
