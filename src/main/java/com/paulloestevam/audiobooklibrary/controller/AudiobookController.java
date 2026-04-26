@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Random;
 
 @RestController
+@CrossOrigin(origins = "http://localhost:5173")
 @Slf4j
 @RequestMapping("/audiobook-library")
 @RequiredArgsConstructor
@@ -37,19 +38,22 @@ public class AudiobookController {
     public String seedData() {
         bookRepository.deleteAll();
 
-        for (int i = 1; i <= 10; i++) {
+        for (int i = 1; i < 20; i++) {
             Book book = new Book();
             book.setTitle("Livro de Teste " + i);
             book.setAuthor("Autor Exemplo " + i);
-            book.setGenre(i % 2 == 0 ? "Filosofia" : "Ficção");
-            book.setDuration("05:30:00");
+            book.setGenre(List.of("Ficção", "Não-ficção", "Literatura").get(new Random().nextInt(3)));
+            book.setDuration("0" + new Random().nextInt(1, 9) + ":"
+                    + new Random().nextInt(10, 59) + ":00");
             book.setRating("4." + i);
             book.setReviewsCount(i * new Random().nextInt(2, 126));
-            book.setDescription("Uma descrição detalhada do livro " + i);
+            book.setDescription(new Random().ints(new Random().nextInt(20, 201), 0, 15).mapToObj(idx -> new String[]{"lorem", "ipsum", "dolor"
+                    , "sit", "amet", "consectetur", "adipiscing", "elit", "sed", "do", "eiusmod"
+                    , "tempor", "incididunt", "ut", "labore", "et"}[idx]).collect(java.util.stream.Collectors.joining(" ")));
             book.setUrlAmazon("https://amazon.com.br/book" + i);
-            book.setImageFilename("capa_" + i + ".jpg");
+            book.setImageFilename("audiobook_" + i + ".jpg");
             book.setZipFilename("audiobook_" + i + ".zip");
-            book.setRestricted(i > 8); // Os dois últimos serão +18
+            book.setRestricted(i > 12 && i % 2 == 0);
             bookRepository.save(book);
         }
 
