@@ -19,6 +19,7 @@ public class Book {
     private String title;
     private String author;
     private String genre;
+    private String subGenre;
     private String duration;
     private String rating;
     private Integer reviewsCount;

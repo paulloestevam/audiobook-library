@@ -43,13 +43,18 @@ public class AudiobookController {
             book.setTitle("Livro de Teste " + i);
             book.setAuthor("Autor Exemplo " + i);
             book.setGenre(List.of("Ficção", "Não-ficção", "Literatura").get(new Random().nextInt(3)));
+            book.setSubGenre(List.of("Auto-Ajuda", "Romance", "Poesia", "Drama", "Policial").get(new Random().nextInt(5)));
             book.setDuration("0" + new Random().nextInt(1, 9) + ":"
                     + new Random().nextInt(10, 59) + ":00");
             book.setRating("4." + i);
             book.setReviewsCount(i * new Random().nextInt(2, 126));
-            book.setDescription(new Random().ints(new Random().nextInt(20, 201), 0, 15).mapToObj(idx -> new String[]{"lorem", "ipsum", "dolor"
-                    , "sit", "amet", "consectetur", "adipiscing", "elit", "sed", "do", "eiusmod"
-                    , "tempor", "incididunt", "ut", "labore", "et"}[idx]).collect(java.util.stream.Collectors.joining(" ")));
+            book.setDescription(new Random().ints(new Random().nextInt(20, 201)
+                            , 0, 15)
+                    .mapToObj(idx -> new String[]{"lorem", "ipsum", "dolor"
+                            , "sit", "amet", "consectetur", "adipiscing", "elit", "sed", "do", "eiusmod"
+                            , "tempor", "incididunt", "ut", "labore", "et"}
+                            [idx]).collect(java.util.stream.Collectors
+                            .joining(" ")));
             book.setUrlAmazon("https://amazon.com.br/book" + i);
             book.setImageFilename("audiobook_" + i + ".jpg");
             book.setZipFilename("audiobook_" + i + ".zip");
