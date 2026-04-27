@@ -1,131 +1,80 @@
 package com.paulloestevam.audiobooklibrary.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.paulloestevam.audiobooklibrary.model.Book;
+import com.paulloestevam.audiobooklibrary.repository.BookRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.bramp.ffmpeg.FFprobe;
-import net.bramp.ffmpeg.probe.FFmpegFormat;
-import net.bramp.ffmpeg.probe.FFmpegProbeResult;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class AudiobookService {
 
-    private final String rootPath = "C:\\projetos\\audiobook-library\\src\\main\\resources\\ZZ_BOOKS_TEMP";
-    private final String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-    private final ObjectMapper mapper = new ObjectMapper();
-    private final Random random = new Random();
-    private final FFprobe ffprobe;
+    private final BookRepository bookRepository;
 
-    public AudiobookService() throws IOException {
-        this.ffprobe = new FFprobe("ffprobe");
+    public List<Book> findAll() {
+        return bookRepository.findAll();
     }
 
-    public void scanAmazon() throws Exception {
-        File folder = new File(rootPath);
-        File[] directories = folder.listFiles(File::isDirectory);
-        List<Book> bookList = new ArrayList<>();
+    public Book save(Book book) {
+        return bookRepository.save(book);
+    }
 
-        if (directories != null) {
-            for (File dir : directories) {
-                String title = dir.getName();
-                File[] audioFiles = dir.listFiles((d, name) -> name.matches(".*\\.(mp3|m4a|m4b)$"));
-
-                if (audioFiles != null && audioFiles.length > 0) {
-                    title = extractAlbumMetadata(audioFiles[0].getAbsolutePath(), title);
-                    log.info("ID3 Title: {}", title);
-                }
-
-                String rating = "";
-                int reviewCount = 0;
-                String url = "";
-
-                Long delayAmazon = random.nextLong(5000, 16001);
-                log.info("Waiting {} for scan amazon...", delayAmazon);
-                Thread.sleep(delayAmazon);
-
-                try {
-                    String searchQuery = title.replaceAll("\\(.*?\\)|\\[.*?\\]|\\.mp3|(?i)\\(?Unabridged\\)?", "").trim();
-                    String searchUrl = "https://www.amazon.com.br/s?k=" + URLEncoder.encode(searchQuery, StandardCharsets.UTF_8);
-
-                    Document doc = Jsoup.connect(searchUrl).userAgent(userAgent).get();
-                    String html = doc.html();
-
-                    url = extractUrl(html);
-                    rating = extractRating(html);
-                    reviewCount = extractReviewCount(html);
-                    log.info("rating: {}, reviewCount: {}, url: {}", rating, reviewCount, url);
-
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                bookList.add(new Book(title, reviewCount, rating, url));
-            }
-
-        } else {
-            log.info("Folder is empty!");
+    public void delete(String id) {
+        if (!bookRepository.existsById(id)) {
+            throw new RuntimeException("Livro não encontrado com o ID: " + id);
         }
-
-        log.info("Writing file amazon_books_scan.json");
-        Files.writeString(Paths.get(rootPath, "amazon_books_scan.json"), mapper.writeValueAsString(bookList), StandardCharsets.UTF_8);
-
-        log.info("Scan completed successfully");
+        bookRepository.deleteById(id);
+        log.info("Livro com ID {} foi removido com sucesso.", id);
     }
 
-    private String extractAlbumMetadata(String filePath, String defaultTitle) {
-        try {
-            FFmpegProbeResult probeResult = ffprobe.probe(filePath);
-            FFmpegFormat format = probeResult.getFormat();
+    public void seedDatabase() {
+        bookRepository.deleteAll();
+        Random random = new Random();
 
-            if (format.tags != null && format.tags.containsKey("album")) {
-                return format.tags.get("album");
-            }
-        } catch (Exception e) {
-            log.error("Could not extract metadata for file: {}", filePath, e);
-            return defaultTitle;
+        int contBooks = 20;
+        for (int i = 1; i < contBooks; i++) {
+            Book book = new Book();
+            book.setTitle("Livro de Teste " + i);
+            book.setAuthor("Autor Exemplo " + i);
+            book.setGenre(List.of("Ficção", "Não-ficção", "Literatura").get(random.nextInt(3)));
+            book.setSubGenre(List.of("Auto-Ajuda", "Romance", "Poesia", "Drama", "Policial").get(random.nextInt(5)));
+            book.setDuration("0" + random.nextInt(1, 9) + ":" + random.nextInt(10, 59) + ":00");
+            book.setRating("4." + i);
+            book.setReviewsCount(i * random.nextInt(2, 126));
+
+            // Lógica do Lorem Ipsum mantida aqui
+            String description = random.ints(random.nextInt(20, 201), 0, 15)
+                    .mapToObj(idx -> new String[]{"lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit", "sed", "do", "eiusmod", "tempor", "incididunt", "ut", "labore", "et"}[idx])
+                    .collect(Collectors.joining(" "));
+
+            book.setDescription(description);
+            book.setUrlAmazon("https://amazon.com.br/book" + i);
+            book.setImageFilename("audiobook_" + i + ".jpg");
+            book.setZipFilename("audiobook_" + i + ".zip");
+            book.setRestricted(i > 12 && i % 2 == 0);
+
+            bookRepository.save(book);
         }
-        return defaultTitle;
+        log.info("Seed finalizado com {} livros.", contBooks);
     }
 
-    private String extractUrl(String html) {
-        Pattern pattern = Pattern.compile("href=\"(/[^\" ]+/dp/[A-Z0-9]{10}[^\"]*)\"");
-        Matcher matcher = pattern.matcher(html);
-        return matcher.find() ? "https://www.amazon.com.br" + matcher.group(1) : "";
+    public Book toggleRestriction(String id) {
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Livro não encontrado"));
+        book.setRestricted(!book.isRestricted());
+        return bookRepository.save(book);
     }
 
-    private String extractRating(String html) {
-        Pattern pattern = Pattern.compile("(\\d+,\\d) de 5 estrelas");
-        Matcher matcher = pattern.matcher(html);
-        return matcher.find() ? matcher.group(1) : "";
-    }
-
-    private int extractReviewCount(String html) {
-        Pattern pattern = Pattern.compile("aria-label=\"([\\d,.]+(?:\\s+mil)?)\\s+(classificações|avaliações)\"");
-        Matcher matcher = pattern.matcher(html);
-        if (matcher.find()) {
-            String temp = matcher.group(1).toLowerCase().trim();
-            if (temp.contains("mil")) {
-                temp = temp.replace("mil", "").replace(" ", "").replace(",", ".");
-                return (int) (Double.parseDouble(temp) * 1000);
-            }
-            return Integer.parseInt(temp.replace(".", "").replace(",", ""));
-        }
-        return 0;
+    public Book updateGenre(String id, String newGenre) {
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Livro não encontrado"));
+        book.setGenre(newGenre);
+        return bookRepository.save(book);
     }
 }
