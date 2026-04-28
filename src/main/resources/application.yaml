@@ -4,3 +4,14 @@ spring:
   data:
     mongodb:
       uri: mongodb://admin:password@localhost:27017/audiobook_db?authSource=admin
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
+
+file:
+  base-dir: C:\projetos\audiobook-library\src\main\resources\
+  #  base-dir: C:\projetos\audiobook-library\src\main\resources\ZZ_BOOKS_TEMP
+  upload-dir: ${file.base-dir}downloads
+  # No Raspberry, você iniciaria a aplicação com:
+  # --file.upload-dir=/var/www/html/downloads

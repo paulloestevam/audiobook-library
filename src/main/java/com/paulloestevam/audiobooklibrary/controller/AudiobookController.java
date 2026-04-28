@@ -6,12 +6,14 @@ import com.paulloestevam.audiobooklibrary.service.AudiobookService;
 import com.paulloestevam.audiobooklibrary.service.GeneratorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:5174")
+@CrossOrigin(origins = "http://localhost:5173")
 @Slf4j
 @RequestMapping("/audiobook-library")
 @RequiredArgsConstructor
@@ -70,5 +72,12 @@ public class AudiobookController {
         log.info("Request: Generate Library");
         generatorService.generate();
         return "Library generated successfully!";
+    }
+
+    @PostMapping("/books/upload-zips")
+    public ResponseEntity<String> uploadZips(@RequestParam("files") MultipartFile[] files) {
+        log.info("Request: Upload de {} arquivos", files.length);
+        audiobookService.uploadZipFiles(files);
+        return ResponseEntity.ok("Upload concluído com sucesso!");
     }
 }

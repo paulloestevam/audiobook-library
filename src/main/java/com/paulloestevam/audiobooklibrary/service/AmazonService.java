@@ -8,6 +8,7 @@ import net.bramp.ffmpeg.probe.FFmpegFormat;
 import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -26,18 +27,20 @@ import java.util.regex.Pattern;
 @Slf4j
 public class AmazonService {
 
-    private final String rootPath = "C:\\projetos\\audiobook-library\\src\\main\\resources\\ZZ_BOOKS_TEMP";
     private final String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     private final ObjectMapper mapper = new ObjectMapper();
     private final Random random = new Random();
     private final FFprobe ffprobe;
+
+    @Value("${file.upload-dir}")
+    private String uploadDir;
 
     public AmazonService() throws IOException {
         this.ffprobe = new FFprobe("ffprobe");
     }
 
     public void scanAmazon() throws Exception {
-        File folder = new File(rootPath);
+        File folder = new File(uploadDir);
         File[] directories = folder.listFiles(File::isDirectory);
         List<Book> bookList = new ArrayList<>();
 
@@ -83,7 +86,7 @@ public class AmazonService {
         }
 
         log.info("Writing file amazon_books_scan.json");
-        Files.writeString(Paths.get(rootPath, "amazon_books_scan.json"), mapper.writeValueAsString(bookList), StandardCharsets.UTF_8);
+        Files.writeString(Paths.get(uploadDir, "amazon_books_scan.json"), mapper.writeValueAsString(bookList), StandardCharsets.UTF_8);
 
         log.info("Scan completed successfully");
     }
