@@ -32,15 +32,15 @@ public class AmazonService {
     private final Random random = new Random();
     private final FFprobe ffprobe;
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+    @Value("${file.downloads-dir}")
+    private String downloadsDir;
 
     public AmazonService() throws IOException {
         this.ffprobe = new FFprobe("ffprobe");
     }
 
     public void scanAmazon() throws Exception {
-        File folder = new File(uploadDir);
+        File folder = new File(downloadsDir);
         File[] directories = folder.listFiles(File::isDirectory);
         List<Book> bookList = new ArrayList<>();
 
@@ -86,7 +86,7 @@ public class AmazonService {
         }
 
         log.info("Writing file amazon_books_scan.json");
-        Files.writeString(Paths.get(uploadDir, "amazon_books_scan.json"), mapper.writeValueAsString(bookList), StandardCharsets.UTF_8);
+        Files.writeString(Paths.get(downloadsDir, "amazon_books_scan.json"), mapper.writeValueAsString(bookList), StandardCharsets.UTF_8);
 
         log.info("Scan completed successfully");
     }

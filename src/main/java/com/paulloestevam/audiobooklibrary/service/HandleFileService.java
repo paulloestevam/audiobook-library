@@ -1,6 +1,5 @@
 package com.paulloestevam.audiobooklibrary.service;
 
-
 import com.paulloestevam.audiobooklibrary.model.Book;
 import com.paulloestevam.audiobooklibrary.repository.BookRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,9 +17,11 @@ import java.nio.file.*;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @Slf4j
@@ -29,10 +30,13 @@ public class HandleFileService {
 
     private final BookRepository bookRepository;
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+    @Value("${file.downloads-dir}")
+    private String downloadsDir;
 
-    public void handleZipfile(MultipartFile[] files) {
+    @Value("${file.images-dir}")
+    private String imagesDir;
+
+    public void uploadZipFiles(MultipartFile[] files) {
         log.info("Iniciando processamento de {} arquivo(s).", files.length);
         for (MultipartFile file : files) {
             String filename = file.getOriginalFilename();
@@ -42,32 +46,18 @@ public class HandleFileService {
             }
 
             try {
-                log.info("Processando arquivo: {}", filename);
-                Path root = Paths.get(uploadDir);
+                Path root = Paths.get(downloadsDir);
                 if (!Files.exists(root)) Files.createDirectories(root);
-
                 Path targetZipPath = root.resolve(filename);
-                log.info("Salvando ZIP original em: {}", targetZipPath);
                 Files.copy(file.getInputStream(), targetZipPath, StandardCopyOption.REPLACE_EXISTING);
-
                 Path tempDir = root.resolve("temp").resolve(filename.replace(".zip", ""));
-                log.info("Criando pasta temporária para extração: {}", tempDir);
                 Files.createDirectories(tempDir);
-
-                log.info("Iniciando descompactação (FileSystem API)...");
                 unzip(targetZipPath, tempDir);
-                log.info("Descompactação concluída.");
-
-                log.info("Iniciando extração de metadados e durações via FFmpeg...");
                 Book book = extractMetadataWithFFmpeg(tempDir, filename);
-
-                log.info("Salvando livro '{}' no MongoDB...", book.getTitle());
+                handleImageCopy(tempDir, book);
                 bookRepository.save(book);
                 log.info("Livro '{}' salvo com sucesso.", book.getTitle());
-
-                log.info("Limpando pasta temporária...");
                 deleteDirectory(tempDir);
-                log.info("Processamento de '{}' finalizado com sucesso.", filename);
 
             } catch (Exception e) {
                 log.error("ERRO CRÍTICO ao processar arquivo {}: {}", filename, e.getMessage(), e);
@@ -75,46 +65,63 @@ public class HandleFileService {
         }
     }
 
+    private void handleImageCopy(Path tempDir, Book book) throws IOException {
+        Path imagesPath = Paths.get(imagesDir);
+        if (!Files.exists(imagesPath)) Files.createDirectories(imagesPath);
+
+        try (Stream<Path> stream = Files.walk(tempDir)) {
+            Optional<Path> imageFile = stream
+                    .filter(p -> p.toString().toLowerCase().endsWith(".jpg") || p.toString().toLowerCase().endsWith(".jpeg"))
+                    .findFirst();
+
+            if (imageFile.isPresent()) {
+                Path source = imageFile.get();
+                String originalName = source.getFileName().toString();
+
+                String cleanedName = originalName.replaceAll("\\s*\\[.*?\\]", "").trim();
+                Path target = imagesPath.resolve(cleanedName);
+
+                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                book.setImageFilename(cleanedName);
+                log.info("Imagem copiada e renomeada: {} -> {}", originalName, cleanedName);
+            } else {
+                log.warn("Nenhuma imagem JPG encontrada dentro do ZIP.");
+            }
+        }
+    }
+
     private Book extractMetadataWithFFmpeg(Path tempDir, String zipFilename) throws IOException {
-        List<Path> audioFiles = Files.walk(tempDir)
-                .filter(p -> p.toString().toLowerCase().matches(".*\\.(mp3|m4a|m4b)$"))
-                .sorted()
-                .collect(Collectors.toList());
+        List<Path> audioFiles;
+        try (Stream<Path> stream = Files.walk(tempDir)) {
+            audioFiles = stream
+                    .filter(p -> p.toString().toLowerCase().matches(".*\\.(mp3|m4a|m4b)$"))
+                    .sorted()
+                    .collect(Collectors.toList());
+        }
 
         if (audioFiles.isEmpty()) {
-            log.error("Nenhum áudio encontrado em {}", tempDir);
             throw new RuntimeException("Nenhum arquivo de áudio encontrado no ZIP.");
         }
 
-        log.info("Total de arquivos de áudio encontrados: {}", audioFiles.size());
-
         Book book = new Book();
         book.setZipFilename(zipFilename);
-        book.setImageFilename(zipFilename.replace(".zip", ".jpg"));
         book.setRestricted(false);
 
-        log.info("Extraindo metadados do primeiro arquivo: {}", audioFiles.get(0).getFileName());
         processMetadata(audioFiles.get(0), book);
 
         long totalSeconds = 0;
-        int count = 0;
         for (Path audio : audioFiles) {
-            count++;
-            if (count % 5 == 0) log.info("Calculando duração... progresso: {}/{}", count, audioFiles.size());
             totalSeconds += getDurationInSeconds(audio);
         }
 
         long hours = totalSeconds / 3600;
         long minutes = (totalSeconds % 3600) / 60;
         book.setDuration(String.format("%02dh%02dm", hours, minutes));
-        log.info("Duração total calculada: {} ({} segundos)", book.getDuration(), totalSeconds);
 
         return book;
     }
 
     private void processMetadata(Path audioFile, Book book) {
-        log.info(">>>> Extraindo metadados do arquivo: {}", audioFile.getFileName());
-
         try {
             Process process = new ProcessBuilder("ffmpeg", "-i", audioFile.toString(), "-f", "ffmetadata", "-")
                     .redirectErrorStream(true)
@@ -123,76 +130,75 @@ public class HandleFileService {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    log.info("[FFmpeg Raw Output] {}", line);
-
                     if (line.contains("=")) {
                         String[] parts = line.split("=", 2);
                         String key = parts[0].toLowerCase().trim();
                         String value = parts[1].trim();
 
-                        // --- Lógica Existente ---
-                        if (key.equals("album")) book.setTitle(value);
-                        else if (key.equals("artist") || key.equals("album_artist")) book.setAuthor(value);
-                        else if (key.equals("genre")) book.setSubGenre(value);
-
-                        // --- Nova Lógica de Descrição com Prioridade ---
-                        // LONG_COMMENT | comment | description | synopsis
+                        if (key.equals("album")) {
+                            book.setTitle(cleanTitle(value));
+                        } else if (key.equals("artist") || key.equals("album_artist")) {
+                            book.setAuthor(cleanAuthor(value));
+                        } else if (key.equals("genre")) {
+                            book.setSubGenre(value);
+                        }
                         processDescription(key, value, book);
                     }
                 }
             }
+            process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
 
-            boolean finished = process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
-            if (!finished) {
-                log.warn("TIMEOUT: FFmpeg não respondeu em 10s para o arquivo {}", audioFile.getFileName());
-                process.destroyForcibly();
-            }
-
-            // Fallbacks
             if (book.getTitle() == null || book.getTitle().isBlank()) {
-                book.setTitle(audioFile.getFileName().toString());
+                book.setTitle(cleanTitle(audioFile.getFileName().toString().replaceFirst("[.][^.]+$", "")));
             }
             if (book.getAuthor() == null || book.getAuthor().isBlank()) {
                 book.setAuthor("Desconhecido");
             }
-
-            log.info("<<<< Fim da extração de metadados para: {}", audioFile.getFileName());
-
         } catch (Exception e) {
-            log.error("ERRO ao processar metadados de {}: {}", audioFile.getFileName(), e.getMessage());
+            log.error("ERRO ao processar metadados: {}", e.getMessage());
         }
     }
 
-    /**
-     * Gerencia a prioridade da descrição.
-     * Regra: LONG_COMMENT > comment > description > synopsis
-     */
+    private String cleanAuthor(String author) {
+        if (author == null || author.isBlank()) return author;
+        if (author.toLowerCase().contains("tradutor") || author.toLowerCase().contains("translator")) {
+            String[] parts = author.split(",");
+
+            StringBuilder authorsOnly = new StringBuilder();
+            for (int i = 0; i < parts.length; i++) {
+                String part = parts[i].trim();
+                if (!part.toLowerCase().contains("tradutor") && !part.toLowerCase().contains("translator")) {
+                    if (authorsOnly.length() > 0) authorsOnly.append(", ");
+                    authorsOnly.append(part);
+                }
+            }
+
+            String result = authorsOnly.toString();
+            if (result.contains(" -")) {
+                result = result.split(" -")[0].trim();
+            }
+            return result.isBlank() ? author : result;
+        }
+
+        return author;
+    }
+
+    private String cleanTitle(String title) {
+        if (title == null) return null;
+        return title.replaceAll("(?i)\\s*\\(unabridged\\)\\s*", " ").trim();
+    }
+
     private void processDescription(String key, String value, Book book) {
         if (value.isBlank()) return;
-
-        // Se for a maior prioridade, seta sempre
         if (key.equals("long_comment")) {
             book.setDescription(value);
-        }
-        // Para as demais, só seta se o campo ainda estiver vazio
-        // ou se o que estiver lá for de uma prioridade menor.
-        else if (key.equals("comment")) {
-            // Se já tiver um LONG_COMMENT, não sobrescreve.
-            // Mas como não sabemos a ordem que as linhas chegam,
-            // uma abordagem simples é usar um Map temporário ou checar se é nulo.
-            if (book.getDescription() == null) book.setDescription(value);
-        }
-        else if (key.equals("description")) {
-            if (book.getDescription() == null) book.setDescription(value);
-        }
-        else if (key.equals("synopsis")) {
+        } else if (List.of("comment", "description", "synopsis").contains(key)) {
             if (book.getDescription() == null) book.setDescription(value);
         }
     }
 
     private long getDurationInSeconds(Path audioFile) {
         try {
-            // FFmpeg envia informações de duração para o stderr por padrão
             Process process = new ProcessBuilder("ffmpeg", "-i", audioFile.toString())
                     .redirectErrorStream(true)
                     .start();
@@ -212,7 +218,7 @@ public class HandleFileService {
             }
             process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
         } catch (Exception e) {
-            log.error("Erro ao obter duração de {}: {}", audioFile.getFileName(), e.getMessage());
+            log.error("Erro ao obter duração: {}", e.getMessage());
         }
         return 0;
     }
@@ -221,34 +227,33 @@ public class HandleFileService {
         Map<String, Object> env = Map.of("encoding", "IBM850");
         try (FileSystem zipFs = FileSystems.newFileSystem(zipFile, env)) {
             Path root = zipFs.getPath("/");
-            Files.walk(root).forEach(sourcePath -> {
-                try {
-                    String relativePath = sourcePath.toString();
-                    Path targetPath = destDir.resolve(relativePath.startsWith("/") ? relativePath.substring(1) : relativePath);
+            try (Stream<Path> stream = Files.walk(root)) {
+                stream.forEach(sourcePath -> {
+                    try {
+                        String relativePath = sourcePath.toString();
+                        Path targetPath = destDir.resolve(relativePath.startsWith("/") ? relativePath.substring(1) : relativePath);
 
-                    if (Files.isDirectory(sourcePath)) {
-                        Files.createDirectories(targetPath);
-                    } else {
-                        if (targetPath.getParent() != null) Files.createDirectories(targetPath.getParent());
-                        Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                        if (Files.isDirectory(sourcePath)) {
+                            Files.createDirectories(targetPath);
+                        } else {
+                            if (targetPath.getParent() != null) Files.createDirectories(targetPath.getParent());
+                            Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
-                } catch (IOException e) {
-                    log.error("Erro ao extrair item {} do ZIP", sourcePath);
-                    throw new RuntimeException(e);
-                }
-            });
+                });
+            }
         }
     }
 
     private void deleteDirectory(Path path) throws IOException {
         if (Files.exists(path)) {
-            Files.walk(path)
-                    .sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
+            try (Stream<Path> stream = Files.walk(path)) {
+                stream.sorted(Comparator.reverseOrder())
+                        .map(Path::toFile)
+                        .forEach(File::delete);
+            }
         }
     }
-
-
 }
-

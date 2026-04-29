@@ -4,6 +4,7 @@ import com.paulloestevam.audiobooklibrary.model.Book;
 import com.paulloestevam.audiobooklibrary.service.AmazonService;
 import com.paulloestevam.audiobooklibrary.service.AudiobookService;
 import com.paulloestevam.audiobooklibrary.service.GeneratorService;
+import com.paulloestevam.audiobooklibrary.service.HandleFileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ public class AudiobookController {
     private final AudiobookService audiobookService;
     private final AmazonService amazonService;
     private final GeneratorService generatorService;
+    private final HandleFileService handleFileService;
 
     @GetMapping("/books")
     public List<Book> getAllBooks() {
@@ -77,7 +79,7 @@ public class AudiobookController {
     @PostMapping("/books/upload-zips")
     public ResponseEntity<String> uploadZips(@RequestParam("files") MultipartFile[] files) {
         log.info("Request: Upload de {} arquivos", files.length);
-        audiobookService.uploadZipFiles(files);
+        handleFileService.uploadZipFiles(files);
         return ResponseEntity.ok("Upload concluído com sucesso!");
     }
 }

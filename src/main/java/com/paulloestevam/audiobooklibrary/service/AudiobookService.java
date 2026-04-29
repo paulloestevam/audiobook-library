@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Random;
@@ -20,8 +19,8 @@ public class AudiobookService {
     private final BookRepository bookRepository;
     private final HandleFileService handleFileService;
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+    @Value("${file.downloadsdir}")
+    private String downloadsDir;
 
     public List<Book> findAll() {
         return bookRepository.findAll();
@@ -84,26 +83,4 @@ public class AudiobookService {
         return bookRepository.save(book);
     }
 
-    public void uploadZipFiles(MultipartFile[] files) {
-        handleFileService.handleZipfile(files);
-//        for (MultipartFile file : files) {
-//            String filename = file.getOriginalFilename();
-//            if (filename == null || !filename.toLowerCase().endsWith(".zip")) {
-//                throw new RuntimeException("Apenas arquivos .zip são permitidos: " + filename);
-//            }
-//
-//            try {
-//                Path root = Paths.get(uploadDir);
-//                if (!Files.exists(root)) {
-//                    Files.createDirectories(root);
-//                }
-//
-//                Path targetPath = root.resolve(filename);
-//                Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
-//
-//                log.info("Arquivo salvo com sucesso: {}", targetPath.toAbsolutePath());
-//            } catch (IOException e) {
-//                throw new RuntimeException("Erro ao salvar o arquivo: " + filename, e);
-//            }
-    }
 }

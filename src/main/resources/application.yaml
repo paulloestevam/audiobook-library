@@ -10,8 +10,21 @@ spring:
       max-request-size: 500MB
 
 file:
-  base-dir: C:\projetos\audiobook-library\src\main\resources\
-  #  base-dir: C:\projetos\audiobook-library\src\main\resources\ZZ_BOOKS_TEMP
-  upload-dir: ${file.base-dir}downloads
-  # No Raspberry, você iniciaria a aplicação com:
-  # --file.upload-dir=/var/www/html/downloads
+  # Use barras normais / mesmo no Windows, o Java entende e evita erros de escape
+  base-dir: "C:/projetos/audiobook-library/src/main/resources/"
+  downloads-dir: "${file.base-dir}downloads"
+  images-dir: "${file.base-dir}images"
+
+# java -jar audiobook-library.jar --file.base-dir=/var/lib/audiobook-library/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics"
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
