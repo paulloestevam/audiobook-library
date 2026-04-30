@@ -3,16 +3,12 @@ package com.paulloestevam.audiobooklibrary.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.paulloestevam.audiobooklibrary.model.Book;
 import lombok.extern.slf4j.Slf4j;
-import net.bramp.ffmpeg.FFprobe;
-import net.bramp.ffmpeg.probe.FFmpegFormat;
-import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -30,41 +26,43 @@ public class AmazonService {
     private final String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     private final ObjectMapper mapper = new ObjectMapper();
     private final Random random = new Random();
-    private final FFprobe ffprobe;
 
     @Value("${file.downloads-dir}")
     private String downloadsDir;
 
-    public AmazonService() throws IOException {
-        this.ffprobe = new FFprobe("ffprobe");
-    }
-
     public void scanAmazon() throws Exception {
         File folder = new File(downloadsDir);
-        File[] directories = folder.listFiles(File::isDirectory);
+
+        // Alterado para filtrar apenas arquivos .zip
+        File[] zipFiles = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".zip"));
         List<Book> bookList = new ArrayList<>();
 
-        if (directories != null) {
-            for (File dir : directories) {
-                String title = dir.getName();
-                File[] audioFiles = dir.listFiles((d, name) -> name.matches(".*\\.(mp3|m4a|m4b)$"));
+        if (zipFiles != null && zipFiles.length > 0) {
+            log.info("Encontrados {} arquivos zip para escanear.", zipFiles.length);
 
-                if (audioFiles != null && audioFiles.length > 0) {
-                    title = extractAlbumMetadata(audioFiles[0].getAbsolutePath(), title);
-                    log.info("ID3 Title: {}", title);
-                }
+            for (File zip : zipFiles) {
+                // Remove a extensão .zip para usar como título de busca
+                String fileName = zip.getName();
+                String titleForSearch = fileName.substring(0, fileName.lastIndexOf('.'));
+
+                log.info("Processando busca para: {}", titleForSearch);
 
                 String rating = "";
                 int reviewCount = 0;
                 String url = "";
 
-                Long delayAmazon = random.nextLong(5000, 16001);
-                log.info("Waiting {} for scan amazon...", delayAmazon);
+                // Delay para evitar block da Amazon
+                long delayAmazon = random.nextLong(5000, 10001);
+                log.info("Waiting {}ms for Amazon rate limit...", delayAmazon);
                 Thread.sleep(delayAmazon);
 
                 try {
-                    String searchQuery = title.replaceAll("\\(.*?\\)|\\[.*?\\]|\\.mp3|(?i)\\(?Unabridged\\)?", "").trim();
+                    // Limpa o nome do arquivo para a busca (remove caracteres especiais de regex que você já usava)
+                    String searchQuery = titleForSearch.replaceAll("\\(.*?\\)|\\[.*?\\]|(?i)\\(?Unabridged\\)?", "").trim();
+
+                    log.info("searchQuery:{}", searchQuery);
                     String searchUrl = "https://www.amazon.com.br/s?k=" + URLEncoder.encode(searchQuery, StandardCharsets.UTF_8);
+                    log.info("searchUrl:{}", searchUrl);
 
                     Document doc = Jsoup.connect(searchUrl).userAgent(userAgent).get();
                     String html = doc.html();
@@ -72,38 +70,27 @@ public class AmazonService {
                     url = extractUrl(html);
                     rating = extractRating(html);
                     reviewCount = extractReviewCount(html);
-                    log.info("rating: {}, reviewCount: {}, url: {}", rating, reviewCount, url);
 
+                    log.info("Resultado -> Rating: {}, Reviews: {}, URL: {}", rating, reviewCount, url);
 
                 } catch (Exception e) {
                     e.printStackTrace();
+                    log.error("Erro ao buscar dados na Amazon para {}: {}", titleForSearch, e.getMessage());
                 }
-                bookList.add(new Book(title, reviewCount, rating, url));
-            }
 
+                // Adiciona à lista usando o construtor resumido que você possui no Model
+                bookList.add(new Book(titleForSearch, reviewCount, rating, url));
+            }
         } else {
-            log.info("Folder is empty!");
+            log.warn("Nenhum arquivo .zip encontrado em: {}", downloadsDir);
         }
 
-        log.info("Writing file amazon_books_scan.json");
-        Files.writeString(Paths.get(downloadsDir, "amazon_books_scan.json"), mapper.writeValueAsString(bookList), StandardCharsets.UTF_8);
+        log.info("Gerando arquivo amazon_books_scan.json...");
+        Files.writeString(Paths.get(downloadsDir, "amazon_books_scan.json"),
+                mapper.writerWithDefaultPrettyPrinter().writeValueAsString(bookList),
+                StandardCharsets.UTF_8);
 
-        log.info("Scan completed successfully");
-    }
-
-    private String extractAlbumMetadata(String filePath, String defaultTitle) {
-        try {
-            FFmpegProbeResult probeResult = ffprobe.probe(filePath);
-            FFmpegFormat format = probeResult.getFormat();
-
-            if (format.tags != null && format.tags.containsKey("album")) {
-                return format.tags.get("album");
-            }
-        } catch (Exception e) {
-            log.error("Could not extract metadata for file: {}", filePath, e);
-            return defaultTitle;
-        }
-        return defaultTitle;
+        log.info("Scan concluído com sucesso.");
     }
 
     private String extractUrl(String html) {
