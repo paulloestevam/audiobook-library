@@ -30,10 +30,9 @@ public class AmazonService {
     @Value("${file.downloads-dir}")
     private String downloadsDir;
 
-    public void scanAmazon() throws Exception {
+    public void scanAmazonByDirectory() throws Exception {
         File folder = new File(downloadsDir);
 
-        // Alterado para filtrar apenas arquivos .zip
         File[] zipFiles = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".zip"));
         List<Book> bookList = new ArrayList<>();
 
@@ -41,7 +40,6 @@ public class AmazonService {
             log.info("Encontrados {} arquivos zip para escanear.", zipFiles.length);
 
             for (File zip : zipFiles) {
-                // Remove a extensão .zip para usar como título de busca
                 String fileName = zip.getName();
                 String titleForSearch = fileName.substring(0, fileName.lastIndexOf('.'));
 
@@ -51,20 +49,25 @@ public class AmazonService {
                 int reviewCount = 0;
                 String url = "";
 
-                // Delay para evitar block da Amazon
                 long delayAmazon = random.nextLong(5000, 10001);
                 log.info("Waiting {}ms for Amazon rate limit...", delayAmazon);
                 Thread.sleep(delayAmazon);
 
                 try {
-                    // Limpa o nome do arquivo para a busca (remove caracteres especiais de regex que você já usava)
                     String searchQuery = titleForSearch.replaceAll("\\(.*?\\)|\\[.*?\\]|(?i)\\(?Unabridged\\)?", "").trim();
 
                     log.info("searchQuery:{}", searchQuery);
                     String searchUrl = "https://www.amazon.com.br/s?k=" + URLEncoder.encode(searchQuery, StandardCharsets.UTF_8);
                     log.info("searchUrl:{}", searchUrl);
 
-                    Document doc = Jsoup.connect(searchUrl).userAgent(userAgent).get();
+                    Document doc = Jsoup.connect(searchUrl)
+                            .userAgent(userAgent)
+                            .header("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
+                            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+                            .header("Connection", "keep-alive")
+                            .referrer("https://www.google.com/")
+                            .timeout(15000) // Aumente o timeout para 15s
+                            .get();
                     String html = doc.html();
 
                     url = extractUrl(html);
@@ -78,7 +81,6 @@ public class AmazonService {
                     log.error("Erro ao buscar dados na Amazon para {}: {}", titleForSearch, e.getMessage());
                 }
 
-                // Adiciona à lista usando o construtor resumido que você possui no Model
                 bookList.add(new Book(titleForSearch, reviewCount, rating, url));
             }
         } else {
@@ -91,6 +93,48 @@ public class AmazonService {
                 StandardCharsets.UTF_8);
 
         log.info("Scan concluído com sucesso.");
+    }
+
+    public void scanAmazonByFile(Book book) throws Exception {
+        log.info("Processando scanAmazonByFile");
+
+        String rating = "";
+        int reviewCount = 0;
+        String url = "";
+
+        String titleForSearch = book.getZipFilename().substring(0, book.getZipFilename().lastIndexOf('.'));
+
+        try {
+            String searchQuery = titleForSearch.trim();
+            log.info("searchQuery:{}", searchQuery);
+            String searchUrl = "https://www.amazon.com.br/s?k=" + URLEncoder.encode(searchQuery, StandardCharsets.UTF_8);
+            log.info("searchUrl:{}", searchUrl);
+
+            long delayAmazon = random.nextLong(5000, 10001);
+            log.info("Waiting {}ms for Amazon rate limit...", delayAmazon);
+            Thread.sleep(delayAmazon);
+
+            Document doc = Jsoup.connect(searchUrl)
+                    .userAgent(userAgent)
+                    .header("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+                    .header("Connection", "keep-alive")
+                    .referrer("https://www.google.com/")
+                    .timeout(15000) // Aumente o timeout para 15s
+                    .get();
+            String html = doc.html();
+
+            url = extractUrl(html);
+            rating = extractRating(html);
+            reviewCount = extractReviewCount(html);
+
+            log.info("Scan concluído - Resultado -> Rating: {}, Reviews: {}, URL: {}", rating, reviewCount, url);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error("Erro ao buscar dados na Amazon para {}: {}", titleForSearch, e.getMessage());
+        }
+
     }
 
     private String extractUrl(String html) {

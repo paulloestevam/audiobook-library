@@ -26,9 +26,10 @@ import java.util.stream.Stream;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class HandleFileService {
+public class UploadZipsService {
 
     private final BookRepository bookRepository;
+    private final AmazonService amazonService;
 
     @Value("${file.downloads-dir}")
     private String downloadsDir;
@@ -38,6 +39,7 @@ public class HandleFileService {
 
     public void uploadZipFiles(MultipartFile[] files) {
         log.info("Iniciando processamento de {} arquivo(s).", files.length);
+
         for (MultipartFile file : files) {
             String filename = file.getOriginalFilename();
             if (filename == null || !filename.toLowerCase().endsWith(".zip")) {
@@ -53,8 +55,10 @@ public class HandleFileService {
                 Path tempDir = root.resolve("temp").resolve(filename.replace(".zip", ""));
                 Files.createDirectories(tempDir);
                 unzip(targetZipPath, tempDir);
-                Book book = extractMetadataWithFFmpeg(tempDir, filename);
-                handleImageCopy(tempDir, book);
+
+                Book book = processBookInformation(tempDir, filename);
+                copyCoverImage(tempDir, book);
+
                 bookRepository.save(book);
                 log.info("Livro '{}' salvo com sucesso.", book.getTitle());
                 deleteDirectory(tempDir);
@@ -65,8 +69,9 @@ public class HandleFileService {
         }
     }
 
-    private void handleImageCopy(Path tempDir, Book book) throws IOException {
+    private void copyCoverImage(Path tempDir, Book book) throws IOException {
         Path imagesPath = Paths.get(imagesDir);
+
         if (!Files.exists(imagesPath)) Files.createDirectories(imagesPath);
 
         try (Stream<Path> stream = Files.walk(tempDir)) {
@@ -90,8 +95,9 @@ public class HandleFileService {
         }
     }
 
-    private Book extractMetadataWithFFmpeg(Path tempDir, String zipFilename) throws IOException {
+    private Book processBookInformation(Path tempDir, String zipFilename) throws IOException {
         List<Path> audioFiles;
+
         try (Stream<Path> stream = Files.walk(tempDir)) {
             audioFiles = stream
                     .filter(p -> p.toString().toLowerCase().matches(".*\\.(mp3|m4a|m4b)$"))
@@ -107,7 +113,8 @@ public class HandleFileService {
         book.setZipFilename(zipFilename);
         book.setRestricted(false);
 
-        processMetadata(audioFiles.get(0), book);
+        extractMetadataWithFFmpeg(audioFiles.get(0), book);
+        extractAmazonInformation(book);
 
         long totalSeconds = 0;
         for (Path audio : audioFiles) {
@@ -121,7 +128,15 @@ public class HandleFileService {
         return book;
     }
 
-    private void processMetadata(Path audioFile, Book book) {
+    private void extractAmazonInformation(Book book) {
+        try {
+            amazonService.scanAmazonByFile(book);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void extractMetadataWithFFmpeg(Path audioFile, Book book) {
         try {
             Process process = new ProcessBuilder("ffmpeg", "-i", audioFile.toString(), "-f", "ffmetadata", "-")
                     .redirectErrorStream(true)
@@ -129,6 +144,7 @@ public class HandleFileService {
 
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
+
                 while ((line = reader.readLine()) != null) {
                     if (line.contains("=")) {
                         String[] parts = line.split("=", 2);
@@ -142,54 +158,30 @@ public class HandleFileService {
                         } else if (key.equals("genre")) {
                             book.setSubGenre(value);
                         }
-                        processDescription(key, value, book);
+
+                        extractDescription(key, value, book);
                     }
                 }
             }
+
             process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
 
             if (book.getTitle() == null || book.getTitle().isBlank()) {
                 book.setTitle(cleanTitle(audioFile.getFileName().toString().replaceFirst("[.][^.]+$", "")));
             }
+
             if (book.getAuthor() == null || book.getAuthor().isBlank()) {
                 book.setAuthor("Desconhecido");
             }
+
         } catch (Exception e) {
             log.error("ERRO ao processar metadados: {}", e.getMessage());
         }
     }
 
-    private String cleanAuthor(String author) {
-        if (author == null || author.isBlank()) return author;
-        if (author.toLowerCase().contains("tradutor") || author.toLowerCase().contains("translator")) {
-            String[] parts = author.split(",");
-
-            StringBuilder authorsOnly = new StringBuilder();
-            for (int i = 0; i < parts.length; i++) {
-                String part = parts[i].trim();
-                if (!part.toLowerCase().contains("tradutor") && !part.toLowerCase().contains("translator")) {
-                    if (authorsOnly.length() > 0) authorsOnly.append(", ");
-                    authorsOnly.append(part);
-                }
-            }
-
-            String result = authorsOnly.toString();
-            if (result.contains(" -")) {
-                result = result.split(" -")[0].trim();
-            }
-            return result.isBlank() ? author : result;
-        }
-
-        return author;
-    }
-
-    private String cleanTitle(String title) {
-        if (title == null) return null;
-        return title.replaceAll("(?i)\\s*\\(unabridged\\)\\s*", " ").trim();
-    }
-
-    private void processDescription(String key, String value, Book book) {
+    private void extractDescription(String key, String value, Book book) {
         if (value.isBlank()) return;
+
         if (key.equals("long_comment")) {
             book.setDescription(value);
         } else if (List.of("comment", "description", "synopsis").contains(key)) {
@@ -216,17 +208,21 @@ public class HandleFileService {
                     }
                 }
             }
+
             process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
         } catch (Exception e) {
             log.error("Erro ao obter duração: {}", e.getMessage());
         }
+
         return 0;
     }
 
     private void unzip(Path zipFile, Path destDir) throws IOException {
         Map<String, Object> env = Map.of("encoding", "IBM850");
+
         try (FileSystem zipFs = FileSystems.newFileSystem(zipFile, env)) {
             Path root = zipFs.getPath("/");
+
             try (Stream<Path> stream = Files.walk(root)) {
                 stream.forEach(sourcePath -> {
                     try {
@@ -245,6 +241,39 @@ public class HandleFileService {
                 });
             }
         }
+    }
+
+    private String cleanAuthor(String author) {
+        if (author == null || author.isBlank()) return author;
+
+        if (author.toLowerCase().contains("tradutor") || author.toLowerCase().contains("translator")) {
+            String[] parts = author.split(",");
+
+            StringBuilder authorsOnly = new StringBuilder();
+
+            for (int i = 0; i < parts.length; i++) {
+                String part = parts[i].trim();
+                if (!part.toLowerCase().contains("tradutor") && !part.toLowerCase().contains("translator")) {
+                    if (authorsOnly.length() > 0) authorsOnly.append(", ");
+                    authorsOnly.append(part);
+                }
+            }
+
+            String result = authorsOnly.toString();
+
+            if (result.contains(" -")) {
+                result = result.split(" -")[0].trim();
+            }
+
+            return result.isBlank() ? author : result;
+        }
+
+        return author;
+    }
+
+    private String cleanTitle(String title) {
+        if (title == null) return null;
+        return title.replaceAll("(?i)\\s*\\(unabridged\\)\\s*", " ").trim();
     }
 
     private void deleteDirectory(Path path) throws IOException {

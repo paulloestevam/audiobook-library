@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 public class AudiobookService {
 
     private final BookRepository bookRepository;
-    private final HandleFileService handleFileService;
+    private final UploadZipsService uploadZipsService;
 
     @Value("${file.downloadsdir}")
     private String downloadsDir;

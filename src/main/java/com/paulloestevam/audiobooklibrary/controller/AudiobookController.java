@@ -3,8 +3,7 @@ package com.paulloestevam.audiobooklibrary.controller;
 import com.paulloestevam.audiobooklibrary.model.Book;
 import com.paulloestevam.audiobooklibrary.service.AmazonService;
 import com.paulloestevam.audiobooklibrary.service.AudiobookService;
-import com.paulloestevam.audiobooklibrary.service.GeneratorService;
-import com.paulloestevam.audiobooklibrary.service.HandleFileService;
+import com.paulloestevam.audiobooklibrary.service.UploadZipsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,8 +21,7 @@ public class AudiobookController {
 
     private final AudiobookService audiobookService;
     private final AmazonService amazonService;
-    private final GeneratorService generatorService;
-    private final HandleFileService handleFileService;
+    private final UploadZipsService uploadZipsService;
 
     @GetMapping("/books")
     public List<Book> getAllBooks() {
@@ -65,21 +63,14 @@ public class AudiobookController {
     @GetMapping("/scan-amazon")
     public String scanAmazon() throws Exception {
         log.info("Request: Scan Amazon");
-        amazonService.scanAmazon();
+        amazonService.scanAmazonByDirectory();
         return "Finished scan";
-    }
-
-    @GetMapping("/generate-library")
-    public String generateLibrary() throws Exception {
-        log.info("Request: Generate Library");
-        generatorService.generate();
-        return "Library generated successfully!";
     }
 
     @PostMapping("/books/upload-zips")
     public ResponseEntity<String> uploadZips(@RequestParam("files") MultipartFile[] files) {
         log.info("Request: Upload de {} arquivos", files.length);
-        handleFileService.uploadZipFiles(files);
+        uploadZipsService.uploadZipFiles(files);
         return ResponseEntity.ok("Upload concluído com sucesso!");
     }
 }
