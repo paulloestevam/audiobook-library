@@ -95,7 +95,7 @@ public class UploadZipsService {
         }
     }
 
-    private Book processBookInformation(Path tempDir, String zipFilename) throws IOException {
+    private Book processBookInformation(Path tempDir, String zipFilename) throws Exception {
         List<Path> audioFiles;
 
         try (Stream<Path> stream = Files.walk(tempDir)) {
@@ -128,12 +128,8 @@ public class UploadZipsService {
         return book;
     }
 
-    private void extractAmazonInformation(Book book) {
-        try {
-            amazonService.scanAmazonByFile(book);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    private void extractAmazonInformation(Book book) throws Exception {
+        amazonService.scanAmazonByFile(book);
     }
 
     private void extractMetadataWithFFmpeg(Path audioFile, Book book) {

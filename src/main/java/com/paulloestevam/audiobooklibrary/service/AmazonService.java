@@ -95,7 +95,7 @@ public class AmazonService {
         log.info("Scan concluído com sucesso.");
     }
 
-    public void scanAmazonByFile(Book book) throws Exception {
+    public void scanAmazonByFile(Book book) {
         log.info("Processando scanAmazonByFile");
 
         String rating = "";
@@ -127,6 +127,10 @@ public class AmazonService {
             url = extractUrl(html);
             rating = extractRating(html);
             reviewCount = extractReviewCount(html);
+
+            book.setUrlAmazon(url);
+            book.setRating(rating);
+            book.setReviewsCount(reviewCount);
 
             log.info("Scan concluído - Resultado -> Rating: {}, Reviews: {}, URL: {}", rating, reviewCount, url);
 
