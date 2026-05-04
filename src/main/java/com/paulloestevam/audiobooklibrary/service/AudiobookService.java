@@ -83,4 +83,14 @@ public class AudiobookService {
         return bookRepository.save(book);
     }
 
+    public List<String> findAllSubGenres() {
+        return bookRepository.findAll()
+                .stream()
+                .map(Book::getSubGenre)
+                .filter(sg -> sg != null && !sg.isBlank())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
 }

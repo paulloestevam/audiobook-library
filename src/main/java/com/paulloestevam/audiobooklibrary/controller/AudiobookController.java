@@ -73,4 +73,10 @@ public class AudiobookController {
         uploadZipsService.uploadZipFiles(files);
         return ResponseEntity.ok("Upload concluído com sucesso!");
     }
+
+    @GetMapping("/books/subgenres")
+    public List<String> getSubGenres() {
+        log.info("Request: Listar todos os subgêneros distintos");
+        return audiobookService.findAllSubGenres();
+    }
 }
