@@ -2,7 +2,7 @@ package com.paulloestevam.audiobooklibrary.controller;
 
 import com.paulloestevam.audiobooklibrary.model.Book;
 import com.paulloestevam.audiobooklibrary.service.AmazonService;
-import com.paulloestevam.audiobooklibrary.service.AudiobookService;
+import com.paulloestevam.audiobooklibrary.service.BookService;
 import com.paulloestevam.audiobooklibrary.service.UploadZipsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,53 +19,68 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AudiobookController {
 
-    private final AudiobookService audiobookService;
+    private final BookService bookService;
     private final AmazonService amazonService;
     private final UploadZipsService uploadZipsService;
 
     @GetMapping("/books")
     public List<Book> getAllBooks() {
         log.info("Request: Listar todos os livros");
-        return audiobookService.findAll();
+        return bookService.findAll();
+    }
+
+    @GetMapping("/books/{id}")
+    public ResponseEntity<Book> getBookById(@PathVariable String id) {
+        log.info("Request: Buscar livro por ID {}", id);
+        return bookService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/books")
     public Book createBook(@RequestBody Book book) {
         log.info("Request: Salvar novo livro {}", book.getTitle());
-        return audiobookService.save(book);
+        return bookService.save(book);
+    }
+
+    @PutMapping("/books/{id}")
+    public ResponseEntity<Book> updateBook(@PathVariable String id, @RequestBody Book bookDetails) {
+        log.info("Request: Editar livro ID {}", id);
+        Book updatedBook = bookService.update(id, bookDetails);
+        return ResponseEntity.ok(updatedBook);
     }
 
     @DeleteMapping("/books/{id}")
     public void deleteBook(@PathVariable String id) {
         log.info("Request: Deletar livro {}", id);
-        audiobookService.delete(id);
+        bookService.delete(id);
     }
 
     @PostMapping("/seed")
     public String seedData() {
         log.info("Request: Executar Seed");
-        audiobookService.seedDatabase();
+        bookService.seedDatabase();
         return "Livros de teste criados com sucesso!";
     }
 
     @PatchMapping("/books/{id}/toggle-restriction")
     public Book toggleRestriction(@PathVariable String id) {
         log.info("Request: Alternar restrição do livro {}", id);
-        return audiobookService.toggleRestriction(id);
+        return bookService.toggleRestriction(id);
     }
 
     @PatchMapping("/books/{id}/genre")
     public Book updateGenre(@PathVariable String id, @RequestBody String genre) {
         log.info("Request: Atualizar gênero do livro {}", id);
-        return audiobookService.updateGenre(id, genre);
+        return bookService.updateGenre(id, genre);
     }
 
-    @GetMapping("/scan-amazon")
-    public String scanAmazon() throws Exception {
-        log.info("Request: Scan Amazon");
-        amazonService.scanAmazonByDirectory();
-        return "Finished scan";
-    }
+//    @GetMapping("/scan-amazon")
+//    public String scanAmazon() throws Exception {
+//        log.info("Request: Scan Amazon");
+//        amazonService.scanAmazonByDirectory();
+//        return "Finished scan";
+//    }
 
     @PostMapping("/books/upload-zips")
     public ResponseEntity<String> uploadZips(@RequestParam("files") MultipartFile[] files) {
@@ -74,9 +89,16 @@ public class AudiobookController {
         return ResponseEntity.ok("Upload concluído com sucesso!");
     }
 
+    @PostMapping("/books/scan-download-folder")
+    public ResponseEntity<String> scanDownloadFolder() {
+        log.info("Request: Scan download folder");
+        uploadZipsService.scanDownloadFolder();
+        return ResponseEntity.ok("Upload concluído com sucesso!");
+    }
+
     @GetMapping("/books/subgenres")
     public List<String> getSubGenres() {
         log.info("Request: Listar todos os subgêneros distintos");
-        return audiobookService.findAllSubGenres();
+        return bookService.findAllSubGenres();
     }
 }

@@ -30,6 +30,7 @@ public class UploadZipsService {
 
     private final BookRepository bookRepository;
     private final AmazonService amazonService;
+    private final GenreCategorizerService genreCategorizerService;
 
     @Value("${file.downloads-dir}")
     private String downloadsDir;
@@ -37,8 +38,33 @@ public class UploadZipsService {
     @Value("${file.images-dir}")
     private String imagesDir;
 
+    public void scanDownloadFolder() {
+        log.info("Iniciando scan da pasta {}", downloadsDir);
+        Path root = Paths.get(downloadsDir);
+
+        if (!Files.exists(root)) {
+            log.warn("Pasta de downloads não encontrada: {}", downloadsDir);
+            return;
+        }
+
+        try (Stream<Path> stream = Files.list(root)) {
+            List<Path> zipFiles = stream
+                    .filter(path -> !Files.isDirectory(path))
+                    .filter(path -> path.toString().toLowerCase().endsWith(".zip"))
+                    .collect(Collectors.toList());
+
+            log.info("Encontrados {} arquivos ZIP para processar.", zipFiles.size());
+
+            for (Path zipPath : zipFiles) {
+                processSingleZipFile(zipPath);
+            }
+        } catch (IOException e) {
+            log.error("Erro ao listar arquivos da pasta de downloads: {}", e.getMessage());
+        }
+    }
+
     public void uploadZipFiles(MultipartFile[] files) {
-        log.info("Iniciando processamento de {} arquivo(s).", files.length);
+        log.info("Iniciando processamento de {} arquivo(s) via upload.", files.length);
 
         for (MultipartFile file : files) {
             String filename = file.getOriginalFilename();
@@ -52,19 +78,43 @@ public class UploadZipsService {
                 if (!Files.exists(root)) Files.createDirectories(root);
                 Path targetZipPath = root.resolve(filename);
                 Files.copy(file.getInputStream(), targetZipPath, StandardCopyOption.REPLACE_EXISTING);
-                Path tempDir = root.resolve("temp").resolve(filename.replace(".zip", ""));
-                Files.createDirectories(tempDir);
-                unzip(targetZipPath, tempDir);
-
-                Book book = processBookInformation(tempDir, filename);
-                copyCoverImage(tempDir, book);
-
-                bookRepository.save(book);
-                log.info("Livro '{}' salvo com sucesso.", book.getTitle());
-                deleteDirectory(tempDir);
-
+                processSingleZipFile(targetZipPath);
             } catch (Exception e) {
-                log.error("ERRO CRÍTICO ao processar arquivo {}: {}", filename, e.getMessage(), e);
+                log.error("ERRO ao fazer upload do arquivo {}: {}", filename, e.getMessage());
+            }
+        }
+    }
+
+    private void processSingleZipFile(Path targetZipPath) {
+        String filename = targetZipPath.getFileName().toString();
+        log.info("Processando ZIP: {}", filename);
+
+        Path tempDir = targetZipPath.getParent().resolve("temp").resolve(filename.replace(".zip", ""));
+
+        try {
+            if (!Files.exists(tempDir)) Files.createDirectories(tempDir);
+            unzip(targetZipPath, tempDir);
+            Book book = processBookInformation(tempDir, filename);
+
+            Optional<Book> existingBook = bookRepository.findByTitleAndAuthorAndDuration(
+                    book.getTitle(), book.getAuthor(), book.getDuration());
+
+            if (existingBook.isPresent()) {
+                log.info("Livro '{}' já existe no banco de dados. Pulando.", book.getTitle());
+            } else {
+                copyCoverImage(tempDir, book);
+                extractAmazonInformation(book);
+                bookRepository.save(book);
+                log.info("Livro '{}' processado e salvo com sucesso.", book.getTitle());
+            }
+
+        } catch (Exception e) {
+            log.error("Erro ao processar o arquivo {}: {}", filename, e.getMessage());
+        } finally {
+            try {
+                deleteDirectory(tempDir);
+            } catch (IOException e) {
+                log.error("Erro ao limpar pasta temporária {}: {}", tempDir, e.getMessage());
             }
         }
     }
@@ -114,7 +164,7 @@ public class UploadZipsService {
         book.setRestricted(false);
 
         extractMetadataWithFFmpeg(audioFiles.get(0), book);
-        extractAmazonInformation(book);
+        extractGenreFromSubGenre(book);
 
         long totalSeconds = 0;
         for (Path audio : audioFiles) {
@@ -126,6 +176,11 @@ public class UploadZipsService {
         book.setDuration(String.format("%02dh%02dm", hours, minutes));
 
         return book;
+    }
+
+    private void extractGenreFromSubGenre(Book book) {
+        String definedGenre = genreCategorizerService.defineGenre(book.getSubGenre());
+        book.setGenre(definedGenre);
     }
 
     private void extractAmazonInformation(Book book) throws Exception {

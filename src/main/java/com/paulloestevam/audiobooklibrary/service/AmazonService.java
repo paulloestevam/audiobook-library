@@ -8,13 +8,8 @@ import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -29,71 +24,6 @@ public class AmazonService {
 
     @Value("${file.downloads-dir}")
     private String downloadsDir;
-
-    public void scanAmazonByDirectory() throws Exception {
-        File folder = new File(downloadsDir);
-
-        File[] zipFiles = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".zip"));
-        List<Book> bookList = new ArrayList<>();
-
-        if (zipFiles != null && zipFiles.length > 0) {
-            log.info("Encontrados {} arquivos zip para escanear.", zipFiles.length);
-
-            for (File zip : zipFiles) {
-                String fileName = zip.getName();
-                String titleForSearch = fileName.substring(0, fileName.lastIndexOf('.'));
-
-                log.info("Processando busca para: {}", titleForSearch);
-
-                String rating = "";
-                int reviewCount = 0;
-                String url = "";
-
-                long delayAmazon = random.nextLong(5000, 10001);
-                log.info("Waiting {}ms for Amazon rate limit...", delayAmazon);
-                Thread.sleep(delayAmazon);
-
-                try {
-                    String searchQuery = titleForSearch.replaceAll("\\(.*?\\)|\\[.*?\\]|(?i)\\(?Unabridged\\)?", "").trim();
-
-                    log.info("searchQuery:{}", searchQuery);
-                    String searchUrl = "https://www.amazon.com.br/s?k=" + URLEncoder.encode(searchQuery, StandardCharsets.UTF_8);
-                    log.info("searchUrl:{}", searchUrl);
-
-                    Document doc = Jsoup.connect(searchUrl)
-                            .userAgent(userAgent)
-                            .header("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
-                            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
-                            .header("Connection", "keep-alive")
-                            .referrer("https://www.google.com/")
-                            .timeout(15000) // Aumente o timeout para 15s
-                            .get();
-                    String html = doc.html();
-
-                    url = extractUrl(html);
-                    rating = extractRating(html);
-                    reviewCount = extractReviewCount(html);
-
-                    log.info("Resultado -> Rating: {}, Reviews: {}, URL: {}", rating, reviewCount, url);
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    log.error("Erro ao buscar dados na Amazon para {}: {}", titleForSearch, e.getMessage());
-                }
-
-                bookList.add(new Book(titleForSearch, reviewCount, rating, url));
-            }
-        } else {
-            log.warn("Nenhum arquivo .zip encontrado em: {}", downloadsDir);
-        }
-
-        log.info("Gerando arquivo amazon_books_scan.json...");
-        Files.writeString(Paths.get(downloadsDir, "amazon_books_scan.json"),
-                mapper.writerWithDefaultPrettyPrinter().writeValueAsString(bookList),
-                StandardCharsets.UTF_8);
-
-        log.info("Scan concluído com sucesso.");
-    }
 
     public void scanAmazonByFile(Book book) {
         log.info("Processando scanAmazonByFile");

@@ -6,8 +6,8 @@ spring:
       uri: mongodb://admin:password@localhost:27017/audiobook_db?authSource=admin
   servlet:
     multipart:
-      max-file-size: 500MB
-      max-request-size: 500MB
+      max-file-size: 1500MB
+      max-request-size: 1500MB
 
 file:
   # Use barras normais / mesmo no Windows, o Java entende e evita erros de escape

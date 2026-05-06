@@ -8,13 +8,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class AudiobookService {
+public class BookService {
 
     private final BookRepository bookRepository;
     private final UploadZipsService uploadZipsService;
@@ -26,8 +27,27 @@ public class AudiobookService {
         return bookRepository.findAll();
     }
 
+    public Optional<Book> findById(String id) {
+        return bookRepository.findById(id);
+    }
+
     public Book save(Book book) {
         return bookRepository.save(book);
+    }
+
+    public Book update(String id, Book bookDetails) {
+        return bookRepository.findById(id).map(book -> {
+            book.setTitle(bookDetails.getTitle());
+            book.setAuthor(bookDetails.getAuthor());
+            book.setGenre(bookDetails.getGenre());
+            book.setSubGenre(bookDetails.getSubGenre());
+            book.setRating(bookDetails.getRating());
+            book.setReviewsCount(bookDetails.getReviewsCount());
+            book.setDescription(bookDetails.getDescription());
+            book.setUrlAmazon(bookDetails.getUrlAmazon());
+            book.setRestricted(bookDetails.isRestricted());
+            return bookRepository.save(book);
+        }).orElseThrow(() -> new RuntimeException("Livro não encontrado com o id: " + id));
     }
 
     public void delete(String id) {
