@@ -46,6 +46,7 @@ public class BookService {
             book.setDescription(bookDetails.getDescription());
             book.setUrlAmazon(bookDetails.getUrlAmazon());
             book.setRestricted(bookDetails.isRestricted());
+            book.setSeries(bookDetails.isSeries());
             return bookRepository.save(book);
         }).orElseThrow(() -> new RuntimeException("Livro não encontrado com o id: " + id));
     }

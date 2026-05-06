@@ -28,6 +28,8 @@ public class Book {
     private String imageFilename;
     private String zipFilename;
     private boolean restricted;
+    private boolean series;
+
     @CreatedDate
     private LocalDateTime dateAdded;
 

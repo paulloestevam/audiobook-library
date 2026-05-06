@@ -39,7 +39,7 @@ public class GenreCategorizerService {
     }
 
     public String defineGenre(String subGenre) {
-        if (subGenre == null) return "Outros";
+        if (subGenre == null) return "00 Outros";
         String lowerSub = subGenre.toLowerCase();
 
         if (literaturaTags.stream().anyMatch(lowerSub::contains)) return "Literatura";
