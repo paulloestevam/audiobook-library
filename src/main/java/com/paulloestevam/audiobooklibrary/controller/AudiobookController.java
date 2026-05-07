@@ -1,12 +1,13 @@
 package com.paulloestevam.audiobooklibrary.controller;
 
 import com.paulloestevam.audiobooklibrary.model.Book;
-import com.paulloestevam.audiobooklibrary.service.AmazonService;
 import com.paulloestevam.audiobooklibrary.service.BookService;
 import com.paulloestevam.audiobooklibrary.service.UploadZipsService;
+import com.paulloestevam.audiobooklibrary.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,8 +21,8 @@ import java.util.List;
 public class AudiobookController {
 
     private final BookService bookService;
-    private final AmazonService amazonService;
     private final UploadZipsService uploadZipsService;
+    private final UserService userService;
 
     @GetMapping("/books-all")
     public List<Book> getAllBooks() {
@@ -99,5 +100,25 @@ public class AudiobookController {
     public List<String> getSubGenres() {
         log.info("Request: Listar todos os subgêneros distintos");
         return bookService.findAllSubGenres();
+    }
+
+    @GetMapping("/users/favorites")
+    public ResponseEntity<List<String>> getFavorites() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        log.info("Request: Buscando favoritos do usuário {}", email);
+        List<String> favorites = userService.getFavorites(email);
+
+        return ResponseEntity.ok(favorites);
+    }
+
+    @PatchMapping("/users/favorites/{bookId}")
+    public ResponseEntity<List<String>> toggleFavorite(@PathVariable String bookId) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        log.info("Request: Toggle favorite para o livro {} do usuário {}", bookId, email);
+        List<String> updatedFavorites = userService.toggleFavorite(email, bookId);
+
+        return ResponseEntity.ok(updatedFavorites);
     }
 }
