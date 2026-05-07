@@ -23,8 +23,14 @@ public class AudiobookController {
     private final AmazonService amazonService;
     private final UploadZipsService uploadZipsService;
 
-    @GetMapping("/books")
+    @GetMapping("/books-all")
     public List<Book> getAllBooks() {
+        log.info("Request: Listar todos os livros");
+        return bookService.findAll();
+    }
+
+    @GetMapping("/books")
+    public List<Book> getAllBooksFiltered() {
         log.info("Request: Listar todos os livros");
         return bookService.findAll();
     }
@@ -74,13 +80,6 @@ public class AudiobookController {
         log.info("Request: Atualizar gênero do livro {}", id);
         return bookService.updateGenre(id, genre);
     }
-
-//    @GetMapping("/scan-amazon")
-//    public String scanAmazon() throws Exception {
-//        log.info("Request: Scan Amazon");
-//        amazonService.scanAmazonByDirectory();
-//        return "Finished scan";
-//    }
 
     @PostMapping("/books/upload-zips")
     public ResponseEntity<String> uploadZips(@RequestParam("files") MultipartFile[] files) {
