@@ -16,7 +16,7 @@ import java.util.List;
 @RestController
 @CrossOrigin(origins = "http://localhost:5173")
 @Slf4j
-@RequestMapping("/audiobook-library")
+@RequestMapping("/")
 @RequiredArgsConstructor
 public class AudiobookController {
 
@@ -26,14 +26,20 @@ public class AudiobookController {
 
     @GetMapping("/books-all")
     public List<Book> getAllBooks() {
-        log.info("Request: Listar todos os livros");
+        log.info("Request: Listar todos os livros getAllBooks");
         return bookService.findAll();
     }
 
     @GetMapping("/books")
-    public List<Book> getAllBooksFiltered() {
-        log.info("Request: Listar todos os livros");
-        return bookService.findAll();
+    public List<Book> getPublicBooks() {
+        log.info("Request: Listar todos os livros públicos");
+        return bookService.findBooksByRestriction(false);
+    }
+
+    @GetMapping("/books-restricted")
+    public List<Book> getRestrictedBooks() {
+        log.info("Request: Listar todos os livros restritos");
+        return bookService.findBooksByRestriction(true);
     }
 
     @GetMapping("/books/{id}")
@@ -46,59 +52,45 @@ public class AudiobookController {
 
     @PostMapping("/books")
     public Book createBook(@RequestBody Book book) {
-        log.info("Request: Salvar novo livro {}", book.getTitle());
+        log.info("Request: Salvar novo livro createBook {}", book.getTitle());
         return bookService.save(book);
     }
 
     @PutMapping("/books/{id}")
     public ResponseEntity<Book> updateBook(@PathVariable String id, @RequestBody Book bookDetails) {
-        log.info("Request: Editar livro ID {}", id);
+        log.info("Request: Editar livro updateBook ID {}", id);
         Book updatedBook = bookService.update(id, bookDetails);
         return ResponseEntity.ok(updatedBook);
     }
 
     @DeleteMapping("/books/{id}")
     public void deleteBook(@PathVariable String id) {
-        log.info("Request: Deletar livro {}", id);
+        log.info("Request: Deletar livro deleteBook {}", id);
         bookService.delete(id);
-    }
-
-    @PostMapping("/seed")
-    public String seedData() {
-        log.info("Request: Executar Seed");
-        bookService.seedDatabase();
-        return "Livros de teste criados com sucesso!";
     }
 
     @PatchMapping("/books/{id}/toggle-restriction")
     public Book toggleRestriction(@PathVariable String id) {
-        log.info("Request: Alternar restrição do livro {}", id);
+        log.info("Request: Alternar restrição do livro toggleRestriction {}", id);
         return bookService.toggleRestriction(id);
     }
 
     @PatchMapping("/books/{id}/genre")
     public Book updateGenre(@PathVariable String id, @RequestBody String genre) {
-        log.info("Request: Atualizar gênero do livro {}", id);
+        log.info("Request: Atualizar gênero do livro updateGenre {}", id);
         return bookService.updateGenre(id, genre);
     }
 
     @PostMapping("/books/upload-zips")
     public ResponseEntity<String> uploadZips(@RequestParam("files") MultipartFile[] files) {
-        log.info("Request: Upload de {} arquivos", files.length);
+        log.info("Request: Upload de {} arquivos uploadZips", files.length);
         uploadZipsService.uploadZipFiles(files);
-        return ResponseEntity.ok("Upload concluído com sucesso!");
-    }
-
-    @PostMapping("/books/scan-download-folder")
-    public ResponseEntity<String> scanDownloadFolder() {
-        log.info("Request: Scan download folder");
-        uploadZipsService.scanDownloadFolder();
         return ResponseEntity.ok("Upload concluído com sucesso!");
     }
 
     @GetMapping("/books/subgenres")
     public List<String> getSubGenres() {
-        log.info("Request: Listar todos os subgêneros distintos");
+        log.info("Request: Listar todos os subgêneros distintos getSubGenres");
         return bookService.findAllSubGenres();
     }
 
@@ -106,7 +98,7 @@ public class AudiobookController {
     public ResponseEntity<List<String>> getFavorites() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        log.info("Request: Buscando favoritos do usuário {}", email);
+        log.info("Request: Buscando favoritos do usuário {} getFavorites", email);
         List<String> favorites = userService.getFavorites(email);
 
         return ResponseEntity.ok(favorites);
@@ -116,9 +108,23 @@ public class AudiobookController {
     public ResponseEntity<List<String>> toggleFavorite(@PathVariable String bookId) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        log.info("Request: Toggle favorite para o livro {} do usuário {}", bookId, email);
+        log.info("Request: Toggle favorite para o livro {} do usuário {} toggleFavorite", bookId, email);
         List<String> updatedFavorites = userService.toggleFavorite(email, bookId);
 
         return ResponseEntity.ok(updatedFavorites);
+    }
+
+    @PostMapping("/scan-download-folder")
+    public ResponseEntity<String> scanDownloadFolder() {
+        log.info("Request: Scan download folder scanDownloadFolder");
+        uploadZipsService.scanDownloadFolder();
+        return ResponseEntity.ok("Upload concluído com sucesso!");
+    }
+
+    @PostMapping("/seed")
+    public String seedData() {
+        log.info("Request: Executar Seed seedData");
+        bookService.seedDatabase();
+        return "Livros de teste criados com sucesso!";
     }
 }

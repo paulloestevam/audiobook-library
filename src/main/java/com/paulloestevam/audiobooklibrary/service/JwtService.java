@@ -1,7 +1,10 @@
 package com.paulloestevam.audiobooklibrary.service;
 
+import com.paulloestevam.audiobooklibrary.model.User;
+import com.paulloestevam.audiobooklibrary.repository.UserRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -12,8 +15,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class JwtService {
 
@@ -23,16 +28,26 @@ public class JwtService {
     @Value("${jwt.expiration}")
     private long jwtExpiration;
 
+    private final UserRepository userRepository;
+
     public String generateToken(Authentication authentication) {
-        DefaultOAuth2User user = (DefaultOAuth2User) authentication.getPrincipal();
+        DefaultOAuth2User defaultOAuth2User = (DefaultOAuth2User) authentication.getPrincipal();
+        String email = defaultOAuth2User.getAttribute("email");
+
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        boolean isAdmin = userOpt.map(User::isAdmin).orElse(false);
+        boolean canAccessRestrictedContent = userOpt.map(User::isCanAccessRestrictedContent).orElse(false);
+
         Map<String, Object> claims = new HashMap<>();
-        claims.put("email", user.getAttribute("email"));
-        claims.put("name", user.getAttribute("name"));
-        claims.put("picture", user.getAttribute("picture"));
+        claims.put("email", email);
+        claims.put("name", defaultOAuth2User.getAttribute("name"));
+        claims.put("picture", defaultOAuth2User.getAttribute("picture"));
+        claims.put("admin", isAdmin);
+        claims.put("canAccessRestrictedContent", canAccessRestrictedContent);
 
         return Jwts.builder()
                 .claims(claims)
-                .subject(user.getAttribute("email"))
+                .subject(email)
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
                 .signWith(Keys.hmacShaKeyFor(secretKey.getBytes()))

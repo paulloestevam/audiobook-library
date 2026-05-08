@@ -1,7 +1,6 @@
 package com.paulloestevam.audiobooklibrary.service;
 
 import com.paulloestevam.audiobooklibrary.model.User;
-import com.paulloestevam.audiobooklibrary.repository.BookRepository;
 import com.paulloestevam.audiobooklibrary.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +16,10 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
 
     public void processUserLogin(OAuth2User oAuth2User) {
         String email = oAuth2User.getAttribute("email");
@@ -59,6 +62,24 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado: " + email));
 
         return user.getFavoriteBookIds();
+    }
+
+    public User toggleAdmin(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado: " + userId));
+
+        user.setAdmin(!user.isAdmin());
+        log.info("Status admin do usuário {} alterado para: {}", user.getEmail(), user.isAdmin());
+        return userRepository.save(user);
+    }
+
+    public User toggleRestrictedContent(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado: " + userId));
+
+        user.setCanAccessRestrictedContent(!user.isCanAccessRestrictedContent());
+        log.info("Acesso restrito do usuário {} alterado para: {}", user.getEmail(), user.isCanAccessRestrictedContent());
+        return userRepository.save(user);
     }
 
 }

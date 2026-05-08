@@ -13,5 +13,6 @@ public interface BookRepository extends MongoRepository<Book, String> {
     List<String> findDistinctSubGenre();
 
     Optional<Book> findByTitleAndAuthorAndDuration(String title, String author, String duration);
+    List<Book> findByRestricted(boolean restricted);
 
 }

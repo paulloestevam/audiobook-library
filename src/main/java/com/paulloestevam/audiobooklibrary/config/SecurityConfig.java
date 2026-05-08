@@ -26,10 +26,14 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/images/**",
+                        .requestMatchers(
+                                "/images/**",
                                 "/downloads/**",
                                 "/login/**",
-                                "/audiobook-library/books"
+                                "/users",
+                                "/books",
+                                "/seed",
+                                "/scan-download-folder"
                         )
                         .permitAll()
                         .anyRequest().authenticated()

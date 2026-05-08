@@ -27,6 +27,11 @@ public class BookService {
         return bookRepository.findAll();
     }
 
+    public List<Book> findBooksByRestriction(Boolean restricted) {
+        log.info("Buscando todos os livros por restrição {}", restricted);
+        return bookRepository.findByRestricted(restricted);
+    }
+
     public Optional<Book> findById(String id) {
         return bookRepository.findById(id);
     }

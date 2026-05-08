@@ -22,6 +22,8 @@ public class User {
     private String email;
     private String name;
     private String picture;
+    private boolean admin;
+    private boolean canAccessRestrictedContent;
 
     @Builder.Default
     private List<String> favoriteBookIds = new ArrayList<>();

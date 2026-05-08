@@ -1,3 +1,7 @@
+server:
+  servlet:
+    context-path: /audiobook-library
+
 spring:
   application:
     name: audiobook-library
@@ -18,13 +22,14 @@ spring:
             scope:
               - email
               - profile
-#        provider:
-#          google:
-#            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth?prompt=select_account
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth?prompt=select_account
 
 jwt:
   secret: ${JWT_SECRET}
-  expiration: 86400000 # 1 dia em ms
+  expiration: 2592000000 # 1 mes em ms
+
 
 file:
   # Use barras normais / mesmo no Windows, o Java entende e evita erros de escape

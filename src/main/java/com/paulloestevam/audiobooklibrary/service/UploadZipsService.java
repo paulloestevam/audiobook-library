@@ -4,6 +4,7 @@ import com.paulloestevam.audiobooklibrary.model.Book;
 import com.paulloestevam.audiobooklibrary.repository.BookRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -132,13 +133,19 @@ public class UploadZipsService {
             if (imageFile.isPresent()) {
                 Path source = imageFile.get();
                 String originalName = source.getFileName().toString();
-
                 String cleanedName = originalName.replaceAll("\\s*\\[.*?\\]", "").trim();
+
                 Path target = imagesPath.resolve(cleanedName);
 
-                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                // Redimensionamento com Thumbnailator
+                Thumbnails.of(source.toFile())
+                        .size(620, 620)
+                        .outputFormat("jpg")
+                        .outputQuality(0.90) // 90% de qualidade para um bom equilíbrio de tamanho
+                        .toFile(target.toFile());
+
                 book.setImageFilename(cleanedName);
-                log.info("Imagem copiada e renomeada: {} -> {}", originalName, cleanedName);
+                log.info("Imagem redimensionada e salva: {} -> {} (620x620)", originalName, cleanedName);
             } else {
                 log.warn("Nenhuma imagem JPG encontrada dentro do ZIP.");
             }
@@ -238,6 +245,18 @@ public class UploadZipsService {
         } else if (List.of("comment", "description", "synopsis").contains(key)) {
             if (book.getDescription() == null) book.setDescription(value);
         }
+
+        book.setDescription(cleanDescription(book.getDescription()));
+    }
+
+    private String cleanDescription(String text) {
+        if (text == null) return null;
+
+        return text.replace("\\n", " ")
+                .replace("\\;", ";")
+                .replace("\\\"", "\"")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private long getDurationInSeconds(Path audioFile) {
