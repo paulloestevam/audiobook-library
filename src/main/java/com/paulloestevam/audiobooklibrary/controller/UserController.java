@@ -5,6 +5,7 @@ import com.paulloestevam.audiobooklibrary.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,12 +24,14 @@ public class UserController {
     }
 
     @PatchMapping("/{id}/toggle-admin")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<User> toggleAdmin(@PathVariable String id) {
         log.info("Request: toggleAdmin para o usuário ID {}", id);
         return ResponseEntity.ok(userService.toggleAdmin(id));
     }
 
     @PatchMapping("/{id}/toggle-restricted")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<User> toggleRestrictedContent(@PathVariable String id) {
         log.info("Request: toggleRestrictedContent para o usuário ID {}", id);
         return ResponseEntity.ok(userService.toggleRestrictedContent(id));

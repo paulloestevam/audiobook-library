@@ -7,6 +7,7 @@ import com.paulloestevam.audiobooklibrary.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,6 +26,7 @@ public class AudiobookController {
     private final UserService userService;
 
     @GetMapping("/books-all")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<Book> getAllBooks() {
         log.info("Request: Listar todos os livros getAllBooks");
         return bookService.findAll();
@@ -70,6 +72,7 @@ public class AudiobookController {
     }
 
     @PatchMapping("/books/{id}/toggle-restriction")
+    @PreAuthorize("hasRole('ADMIN')")
     public Book toggleRestriction(@PathVariable String id) {
         log.info("Request: Alternar restrição do livro toggleRestriction {}", id);
         return bookService.toggleRestriction(id);

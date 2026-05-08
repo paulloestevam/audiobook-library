@@ -42,16 +42,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 2. Se temos o e-mail e o usuário ainda não está autenticado no contexto
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             if (jwtService.isTokenValid(jwt)) {
-                // Criamos o objeto de autenticação para o Spring Security
+
+                // Extrai se é admin do token
+                boolean isAdmin = jwtService.isAdmin(jwt);
+
+                // Define as autoridades (Roles). No Spring, o padrão é usar o prefixo "ROLE_"
+                var authorities = isAdmin
+                        ? Collections.singletonList(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))
+                        : Collections.<org.springframework.security.core.authority.SimpleGrantedAuthority>emptyList();
+
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userEmail,
                         null,
-                        Collections.emptyList() // Aqui você poderia carregar Roles se quisesse
+                        authorities // Passa a autoridade aqui
                 );
 
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                // 3. Define o usuário como autenticado
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }

@@ -76,5 +76,14 @@ public class JwtService {
         }
     }
 
-    // Adicione aqui o método para validar o token nas requisições futuras
+    public boolean isAdmin(String token) {
+        Boolean isAdmin = Jwts.parser()
+                .verifyWith(Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8)))
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .get("admin", Boolean.class);
+
+        return Boolean.TRUE.equals(isAdmin); // Garante false se for null
+    }
 }
