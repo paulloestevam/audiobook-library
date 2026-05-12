@@ -22,7 +22,7 @@ public class AmazonService {
     private final ObjectMapper mapper = new ObjectMapper();
     private final Random random = new Random();
 
-    @Value("${file.downloads-dir}")
+    @Value("${app.downloads-dir}")
     private String downloadsDir;
 
     public void scanAmazonByFile(Book book) {

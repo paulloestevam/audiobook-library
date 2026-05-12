@@ -20,7 +20,7 @@ public class BookService {
     private final BookRepository bookRepository;
     private final UploadZipsService uploadZipsService;
 
-    @Value("${file.downloadsdir}")
+    @Value("${app.downloadsdir}")
     private String downloadsDir;
 
     public List<Book> findAll() {

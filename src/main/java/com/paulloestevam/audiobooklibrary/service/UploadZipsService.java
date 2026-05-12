@@ -33,10 +33,10 @@ public class UploadZipsService {
     private final AmazonService amazonService;
     private final GenreCategorizerService genreCategorizerService;
 
-    @Value("${file.downloads-dir}")
+    @Value("${app.downloads-dir}")
     private String downloadsDir;
 
-    @Value("${file.images-dir}")
+    @Value("${app.images-dir}")
     private String imagesDir;
 
     public void scanDownloadFolder() {

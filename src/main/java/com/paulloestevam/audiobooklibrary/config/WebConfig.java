@@ -10,10 +10,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    @Value("${file.images-dir}")
+    @Value("${app.images-dir}")
     private String imagesDir;
 
-    @Value("${file.downloads-dir}")
+    @Value("${app.downloads-dir}")
     private String downloadsDir;
 
     // Configuração de Recursos Estáticos (Imagens)
