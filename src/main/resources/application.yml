@@ -1,13 +1,15 @@
 server:
   servlet:
     context-path: /audiobook-library
+  port: 8086
 
 spring:
   application:
     name: audiobook-library
   data:
     mongodb:
-      uri: mongodb://admin:password@localhost:27017/audiobook_db?authSource=admin&connectTimeoutMS=10000&socketTimeoutMS=60000
+      #      uri:             mongodb://admin:password@localhost:27017/audiobook_db?authSource=admin&connectTimeoutMS=10000&socketTimeoutMS=60000
+      uri: ${MONGO_URI:mongodb://admin:password@localhost:27017/audiobook_db?authSource=admin}
   servlet:
     multipart:
       max-file-size: 1500MB
@@ -30,12 +32,15 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: 2592000000 # 1 mes em ms
 
+admin:
+  initial-email: ${INITIAL_ADMIN_EMAIL}
 
-file:
+app:
   # Use barras normais / mesmo no Windows, o Java entende e evita erros de escape
-  base-dir: "C:/projetos/audiobook-library/src/main/resources/"
-  downloads-dir: "${file.base-dir}downloads"
-  images-dir: "${file.base-dir}images"
+  base-dir: ${BASE_DIR}
+  downloads-dir: "${app.base-dir}downloads"
+  images-dir: "${app.base-dir}images"
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
 
 # java -jar audiobook-library.jar --file.base-dir=/var/lib/audiobook-library/
 
