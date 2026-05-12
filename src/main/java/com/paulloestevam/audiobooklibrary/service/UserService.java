@@ -4,6 +4,7 @@ import com.paulloestevam.audiobooklibrary.model.User;
 import com.paulloestevam.audiobooklibrary.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +15,9 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class UserService {
+
+    @Value("${admin.initial-email}")
+    private String initialAdminEmail;
 
     private final UserRepository userRepository;
 
@@ -30,7 +34,17 @@ public class UserService {
                 .orElse(User.builder()
                         .email(email)
                         .favoriteBookIds(new java.util.ArrayList<>())
+                        .admin(false) // Default
+                        .canAccessRestrictedContent(false) // Default
                         .build());
+
+        if (email != null && email.equalsIgnoreCase(initialAdminEmail)) {
+            if (!user.isAdmin()) {
+                log.info("E-mail de administrador detectado ({}). Concedendo privilégios de admin.", email);
+                user.setAdmin(true);
+                user.setCanAccessRestrictedContent(true);
+            }
+        }
 
         user.setName(name);
         user.setPicture(picture);
